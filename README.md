@@ -22,14 +22,16 @@ Usage: ref [options]
 
 ## Features
 
-- :white_check_mark: Get bibtex from paper's name
-- :white_check_mark: Get pdf from paper's name
-- :white_check_mark: Deal with many papers at one time
+- :white_check_mark: Search and download bibtex with paper's title
+- :white_check_mark: Search and download pdf with paper's title
+- :white_check_mark: Support batch downloading
 
 ## TODO
 
 - [ ] Proxy
 - [ ] Concurrency
 - [ ] Robustness
+- [ ] Refactoring
 - [ ] Support for conference and journals
+
 
