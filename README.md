@@ -1,5 +1,5 @@
 # paper.gt
-A useful paper tool for computer science
+A useful paper tool for any field - __PAPER GOD TOOL__
 
 ## Usage
 
@@ -25,6 +25,7 @@ Usage: ref [options]
 - :white_check_mark: Search and download bibtex with paper's title
 - :white_check_mark: Search and download pdf with paper's title
 - :white_check_mark: Support batch downloading
+- :joy::joy::joy::joy:
 
 ## TODO
 
@@ -33,5 +34,5 @@ Usage: ref [options]
 - [ ] Robustness
 - [ ] Refactoring
 - [ ] Support for conference and journals
-
+- [ ] :sleeping::sleeping::sleeping:
 
