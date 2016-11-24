@@ -9,12 +9,8 @@ import java.net.UnknownHostException;
  * Created by lss on 11/24/16.
  */
 public class HelloProxy {
-    public enum Type{
-        HTTP, HTTPS, SOCKS;
-    }
-
     private String ip, port;
-    private Type type;
+    private Proxy.Type type;
     private boolean checkAgain = false;
 
     public HelloProxy(String ip, String port, String s) throws InvalidArgumentException {
@@ -27,13 +23,13 @@ public class HelloProxy {
         }
     }
 
-    private Type parseType(String s) {
+    private Proxy.Type parseType(String s) {
         if (s.equals("HTTP"))
-            return Type.HTTP;
+            return Proxy.Type.HTTP;
         else if (s.equals("HTTPS"))
-            return Type.HTTPS;
+            return Proxy.Type.HTTP;
         else if (s.equals("SOCKS"))
-            return Type.SOCKS;
+            return Proxy.Type.SOCKS;
         return null;
     }
 
@@ -73,12 +69,12 @@ public class HelloProxy {
         return null;
     }
 
-    Type getType() {
+    Proxy.Type getType() {
         return type;
     }
 
     public Proxy.Type getProxyType() {
-        return (type == Type.SOCKS) ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
+        return (type == Proxy.Type.SOCKS) ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
     }
 
     @Override

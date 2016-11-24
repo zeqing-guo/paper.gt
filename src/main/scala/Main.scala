@@ -7,12 +7,12 @@ object Main extends App {
   val parser = new scopt.OptionParser[Config]("ref") {
     head("ref", "0.1.0")
 
+    opt[String]('t', "title").valueName("<title>").action((title, c) => c.copy(title = title)).
+      text("search the paper with its <title>")
+
     opt[String]('i', "input").valueName("<file>").
       action((file, c) => c.copy(titlesFile = file)).
       text("read titles from <file> line by line")
-
-    opt[String]('t', "title").valueName("<title>").action((title, c) => c.copy(title = title)).
-      text("search the paper with its <title>")
 
     opt[String]('b', "bib").valueName("<bib target file>").
       action((file, c) => c.copy(bibTargetFile = file)).

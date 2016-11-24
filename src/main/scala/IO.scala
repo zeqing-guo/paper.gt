@@ -1,4 +1,5 @@
 import java.io._
+import java.net.Proxy
 
 /**
   * Created by zqguo on 16-11-23.
@@ -36,89 +37,105 @@ object IO {
     "http://sci-hub.cc/"
   }
 
-
   def downloadPdf(doiOption: Option[String], targetDir: String, dblpName: String): Boolean = {
-    doiOption.exists {
-      doi =>
-        val queryUrl = s"$getSciHubUrl$doi"
+    if (doiOption.isDefined) {
+      val doi = doiOption.get
+      val queryUrl = s"$getSciHubUrl$doi"
+      if (Ref.isDebug) {
+        println(s"[downloadPdf] queryUrl = $queryUrl")
+      }
+      val pdfUrl = fetchHTML(queryUrl)
+      try {
         if (Ref.isDebug) {
-          println(s"[downloadPdf] $queryUrl")
+          println(s"[downloadPdf] pdfUrl = $pdfUrl")
         }
-        try {
-          val dir = new File(targetDir)
-          dir.mkdir()
-          val html = sendRequest(queryUrl)
-          var pdfUrl = html.split("frame")(2)
-            .split("\"", 3)(1)
-          if (pdfUrl.startsWith("/")) {
-            pdfUrl = "http:" + pdfUrl
-          }
-
+        val dir = new File(targetDir)
+        dir.mkdir()
+        val pdfName = s"$targetDir/$dblpName.pdf"
+        cleanly[ProxyFetcher, Unit](ProxyFetcher.getInstance(null, 0))(_.close()) {
+          proxyFetcher =>
+            var connectCount = 1
+            while (connectCount <= 5) {
+              val helloProxy = proxyFetcher.getProxy()
+              val proxy = new Proxy(helloProxy.getType, helloProxy.getAddress)
+              if (!fetchBinaryFile(pdfUrl, proxy = Some(proxy), filename = pdfName)) {
+                connectCount += 1
+              }
+            }
+        }
+        new File(pdfName).exists()
+      } catch {
+        case ex: Exception =>
           if (Ref.isDebug) {
-            println(s"[downloadPdf] $pdfUrl")
+            ex.printStackTrace()
           }
-          val pdfName = s"$targetDir/$dblpName.pdf"
-          sendRequestForFile(pdfUrl, filename = pdfName)
-          new File(pdfName).exists()
-        } catch {
-          case ex => ex.printStackTrace()
-            false
-        }
+      }
     }
+    false
   }
 
-
-  def sendRequest(url: String,
-                  connectTimeout: Int = 5000,
-                  readTimeout: Int = 5000,
-                  requestMethod: String = "GET") = {
-    import java.net.{InetSocketAddress, Proxy, URL, HttpURLConnection}
-    val proxy: Proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("10.131.1.38", 22556))
-    val conn = if (isProxy) {
-      new URL(url).openConnection(proxy).asInstanceOf[HttpURLConnection]
-    } else {
-      new URL(url).openConnection().asInstanceOf[HttpURLConnection]
-    }
-    conn.setConnectTimeout(connectTimeout)
-    conn.setReadTimeout(readTimeout)
-    conn.setRequestMethod(requestMethod)
-    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36")
-    val inputStream = conn.getInputStream
-    val content = io.Source.fromInputStream(inputStream).mkString
-    if (inputStream != null) {
-      inputStream.close()
-    }
-    content
-  }
-
-  def sendRequestForFile(url: String,
-                         connectTimeout: Int = 5000,
-                         readTimeout: Int = 5000,
-                         requestMethod: String = "GET",
-                         filename: String) = {
-    import java.net.{Proxy, URL, HttpURLConnection, InetSocketAddress}
-    var outStream: OutputStream = null
+  def fetchWebContent[T](url: String, connectTimeout: Int = 5000, readTimeout: Int = 5000, requestMethod: String = "GET"
+                         , proxy: Option[Proxy] = None)(op: InputStream => T): Option[T] = {
+    import java.net.{URL, HttpURLConnection}
     var inputStream: InputStream = null
     try {
-      val proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("10.131.1.38", 22556))
-      val conn = if (isProxy) {
-        new URL(url).openConnection(proxy).asInstanceOf[HttpURLConnection]
+      val conn = if (proxy.isDefined) {
+        new URL(url).openConnection(proxy.get).asInstanceOf[HttpURLConnection]
       } else {
         new URL(url).openConnection().asInstanceOf[HttpURLConnection]
       }
       conn.setConnectTimeout(connectTimeout)
       conn.setReadTimeout(readTimeout)
       conn.setRequestMethod(requestMethod)
-      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36")
-      inputStream = conn.getInputStream()
-      outStream = new BufferedOutputStream(new FileOutputStream(filename))
-      val byteArray = Stream.continually(inputStream.read).takeWhile(-1 !=).map(_.toByte).toArray
-      outStream.write(byteArray)
+      conn.setRequestProperty("User-Agent"
+        , "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36")
+      if (conn.getResponseCode < 400) {
+        inputStream = conn.getInputStream()
+        Some(op(inputStream))
+      } else {
+        None
+      }
     } catch {
-      case e: Exception => println(e.printStackTrace())
+      case ex: Exception =>
+        if (Ref.isDebug) {
+          ex.printStackTrace()
+        }
     } finally {
-      outStream.close
-      inputStream.close
+      inputStream.close()
+    }
+    None
+  }
+
+  def fetchHTML(url: String, connectTimeout: Int = 5000, readTimeout: Int = 5000
+                , requestMethod: String = "GET", proxy: Option[Proxy] = None): String =
+    fetchWebContent(url, connectTimeout, readTimeout, requestMethod, proxy)(io.Source.fromInputStream(_).mkString)
+      .getOrElse("")
+
+  def fetchBinaryFile(url: String, connectTimeout: Int = 5000, readTimeout: Int = 5000,
+                      requestMethod: String = "GET", proxy: Option[Proxy] = None, filename: String): Boolean = {
+    fetchWebContent(url, connectTimeout, readTimeout, requestMethod, proxy) {
+      inputStream =>
+        cleanly(new BufferedOutputStream(new FileOutputStream(filename)))(_.close()) {
+          outStream =>
+            val byteArray = Stream.continually(inputStream.read).takeWhile(-1 !=).map(_.toByte).toArray
+            outStream.write(byteArray)
+        }.isRight
+    }.getOrElse(false)
+  }
+
+  // Code from stackoverflow:
+  // http://stackoverflow.com/questions/8865754/scala-finally-block-closing-flushing-resource#answer-8865994
+  def cleanly[A, B](resource: => A)(cleanup: A => Unit)(code: A => B): Either[Exception, B] = {
+    try {
+      val r = resource
+      try {
+        Right(code(r))
+      } finally {
+        cleanup(r)
+      }
+    }
+    catch {
+      case e: Exception => Left(e)
     }
   }
 

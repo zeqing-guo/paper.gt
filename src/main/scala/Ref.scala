@@ -12,25 +12,20 @@ object Ref {
       println(s"[title2DblpKey] query for $title:\n$queryApi\n")
     }
     try {
-      val content: Elem = xml.XML.loadString(IO.sendRequest(queryApi))
+      val content: Elem = xml.XML.loadString(IO.fetchHTML(queryApi))
       val dblpKey = (content \\ "url").headOption.map {
         (paperNode) =>
           val paperUrl = paperNode.text
           paperUrl.substring(lastNIndexOf(paperUrl, '/', 3) + 1)
-      }. getOrElse("")
+      }.getOrElse("")
       if (isDebug) {
         println(s"[title2DblpKey] dblp key for $title:\n$dblpKey\n")
       }
       dblpKey
     } catch {
-      case ioe: java.io.IOException =>
+      case ex: Exception =>
         if (isDebug) {
-          ioe.printStackTrace()
-        }
-        ""
-      case ste: java.net.SocketException =>
-        if (isDebug) {
-          ste.printStackTrace()
+          ex.printStackTrace()
         }
         ""
     }
@@ -39,7 +34,7 @@ object Ref {
   def dblpKey2Bib(dblpKey: String): String = {
     val queryApi = s"http://dblp.dagstuhl.de/rec/bib0/$dblpKey.bib"
     try {
-      val bib = IO.sendRequest(queryApi)
+      val bib = IO.fetchHTML(queryApi)
       if (isDebug) {
         println(s"[dblpkey2Bib] bib for $dblpKey:\n$bib\n")
       }
@@ -66,7 +61,7 @@ object Ref {
   def dblpKey2Doi(dblpKey: String): Option[String] = {
     val queryApi = s"http://dblp.uni-trier.de/rec/xml/$dblpKey.xml"
     try {
-      val content = xml.XML.loadString(IO.sendRequest(queryApi))
+      val content = xml.XML.loadString(IO.fetchHTML(queryApi))
       val doi = (content \\ "ee")
         .headOption
         .map(_.text)
