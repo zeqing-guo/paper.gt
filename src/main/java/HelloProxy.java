@@ -57,6 +57,9 @@ public class HelloProxy {
         return checkAgain;
     }
 
+    /**
+     * The InetSocketAddress field in setting a proxy for web connection
+     */
     public InetSocketAddress getAddress() {
         return new InetSocketAddress(ip, Integer.parseInt(port));
     }
